@@ -1,0 +1,2 @@
+#!/bin/bash
+awk -F, '/^[^#]/{print $3 " " $2 " " $2 ".ee.cooper.edu"}' /etc/dnsmasq.d/dhcp.hosts | cat /etc/hosts.local - | sudo tee /etc/hosts
