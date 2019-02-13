@@ -1,0 +1,87 @@
+# Create VM
+Run '/vm/scripts/create_winserver2.sh'
+ This is an already built script.
+ You can take a look at it to see what it does.
+ Mainly, it creates an image disk to act as the hard drive and then starts the virt-install utility.
+ The virt-install creates and starts the VM.
+ The settings for the VM then can be modified with the command 'sudo virsh edit <vm name>'
+ Once the script finishes, it'll tell you to continue with installation via console.
+ The script also enables VNC on port 6000
+
+# Install Windows Server
+Open a VNC client and connect to shannon.ee.cooper.edu (199.98.27.236) on port 6000
+Found free keys at: https://docs.ovh.com/gb/en/dedicated/windows-key/
+#######################################################################
+# Windows Server 2008 Standard 	        TM24T-X9RMF-VWXK6-X8JC9-BFGM2 #
+# Windows Server 2008 Enterprise 	YQGMW-MPWTJ-34KDK-48M3W-X4Q6V #
+# Windows Server 2008 Datacenter 	7M67G-PC374-GR742-YH8V4-TCBY3 #
+# Windows Server 2008 R2 Standard 	YC6KT-GKW9T-YTKYR-T4X34-R7VHC #
+# Windows Server 2008 R2 Enterprise 	489J6-VHDMP-X63PK-3K798-CPX3Y #
+# Windows Server 2008 R2 Datacenter 	74YFP-3QFB3-KQT8W-PMXWJ-7M648 #
+# Windows Server 2012 Standard 	        XC9B7-NBPP2-83J2H-RHMBY-92BT4 #
+# Windows Server 2012 Datacenter 	48HP8-DN98B-MYWDG-T2DCC-8W83P #
+# Windows Server 2012 R2 Standard 	D2N9P-3P6X9-2R39C-7RTCD-MDVJX #
+# Windows Server 2012 R2 Datacenter 	W3GGN-FT8W3-Y4M27-J84CP-Q3VJ9 #
+# Windows 8.1 Professional 	        GCRJD-8NW9H-F2CDX-CCM8D-9D6T9 #
+# Windows Server 2016 Datacenter 	CB7KF-BWN84-R7R2Y-793K2-8XDDG #
+# Windows Server 2016 Standard 	        WC2BQ-8NRM3-FDDYY-2BFGV-KHKQY #
+# Windows Server 2016 Essentials 	JCKRF-N37P4-C2D82-9YXRT-4M63B #
+#######################################################################
+Follow the installation and wait until it finishes.
+ I selected the non-desktop version, but desktop version is fine as well; it includes the GUI.
+When installation finishes and the VM shuts, mount virtIO image.
+ 'sudo virsh edit <vm name>' and editing image to 'virtio-win.iso'
+
+# Configure Windows Server
+Start the VM 'sudo virsh start <vm>'
+Re-connect to VNC and set admin password
+Install network driver:
+ 'cd /D D:\'
+ 'pnputil /add-driver D:\NetKVM\2k16\amd\netkvm.inf'
+ 'shutdown /r /t 0'
+
+#sconfig.cmd
+#wmic logicaldisk get name #lists drive names
+
+# Setup storage
+The storage and iSCSI targets have already been created and setup on the NAS.
+Connect to iSCSI target
+ 'iscsicpl'
+ On the dialog that shows up:
+  'archivist1.ee.cooper.edu'
+  Click 'Quick Connect'
+  Select 'iqn.2019-02.edu.cooper.ee:archivist1.me'
+  Click 'Connect'
+Now that volume on the NAS shows up as if it was connected to your VM.
+Now we need to partition and format it:
+ !! This should only be done once, like when everything was first setup.
+ !! Repeating this process will wipe the data on the drives.
+ !! This has already been done once by me (Brian/Thomas) on Feb.7, 2019
+ 'diskpart'
+ Find the right partition 'list disk'
+ 'select disk <#>'
+ 'online disk'
+ 'list part'
+ There should be no partitions
+ 'create partition primary'
+ If it fails and is write protected, run below line and try again:
+ 'attribute disk clear readonly'
+ 'list part'
+ 'select partition 1'
+ 'format fs=NTFS' This should take a while
+ 'assign letter=M'
+
+# Setup Domain Controller
+Create Domain Controller by promoting the server to DC for a new Domain
+ dcpromo.exe /unattend /NewDomain:forest /ReplicaOrNewDomain:Domain /NewDomainDNSName:ee.cooper.edu /DomainLevel:4 /ForestLevel:4 /SafeModeAdminPassword:"password"
+ ** There is a PowerShell command to do this
+
+Create a new admin user
+ New-ADUser -Name "Thomas" -GivenName Thom -Surname Ass -SamAccountName Thomas -UserPrincipalName thomas@ee.cooper.edu
+ Get-ADUser thomas
+ Set-ADAccountPassword ‘CN=Thomas,CN=Users,DC=ee,DC=cooper,DC=edu’ -Reset -NewPassword (ConvertTo-SecureString -AsPlainText “password” -Force)
+ Enable-ADAccount -Identity Thomas
+ Add-ADGroupMember 'Domain Admins' Thomas
+
+Create a new group
+ New-ADGroup 
