@@ -1,0 +1,103 @@
+#!/bin/bash
+
+log_dir="/root/logs"
+script_name=$(basename $0)
+date=`date "+%Y-%m-%d:%T"`
+log_file=${log_dir}/${script_name}_${date}
+email="eeadmin@cooper.edu"
+
+#set -e
+exec > ${log_file}
+exec 2>&1
+
+failed () {
+	cat /root/.bin/backup_fail.template ${log_file} | /usr/sbin/sendmail $email
+	#echo "Sending fail email"
+}
+
+success () {
+	cat /root/.bin/backup_success.template ${log_file} | /usr/sbin/sendmail $email
+	#echo "Sending success email"
+}
+
+f=0
+
+if mount | grep /vicepa_bak > /dev/null; then
+	echo "/vicepa_bak already mounted."
+else
+
+	echo "Doing an iscsiadm discovery on archivist1... "
+	iscsiadm -m discovery -t st -p archivist1.ee.cooper.edu
+	if [ $? -ne 0 ]; then
+		echo "FAIL!"
+		failed
+		exit -1;
+	else
+		echo "SUCCESS!"
+	fi
+
+	echo ""
+	echo "Attaching archivist1.userbak... "
+	iscsiadm -m node -T iqn.2018-02.edu.cooper.ee:archivist1.userbak -p archivist1.ee.cooper.edu -l
+	if [ $? -ne 0 ]; then
+		echo "FAIL!"
+		failed
+		exit -1;
+	else
+		echo "SUCCESS!"
+	fi
+
+	sleep 3
+
+	echo ""
+	echo "Mounting /vicepa_bak... "
+	mount /vicepa_bak
+	if [ $? -ne 0 ] && ! grep -qs '/vicepa_bak' /proc/mounts; then
+		echo "FAIL!"
+		failed
+		exit -1;
+	else
+		echo "SUCCESS!"
+	fi
+fi
+
+echo ""
+echo "Starting rsync... "
+echo "Time elapsed:"
+time rsync -avP --delete /vicepa/ /vicepa_bak > ${log_file}_verbose # /dev/null
+ec=$?
+if [ $ec -ne 0 ] && [ $ec -ne 24 ]; then
+	echo "FAIL!"
+	echo "Exit code: $ec"
+	f=1
+else
+	echo "SUCCESS!"
+fi
+
+echo ""
+echo "Unmounting /vicepa_bak... "
+umount /vicepa_bak
+if [ $? -ne 0 ]; then
+	echo "FAIL!"
+	f=1
+else
+	echo "SUCCESS!"
+fi
+
+echo ""
+echo "Detaching archivist1.userbak... "
+iscsiadm -m node -T iqn.2018-02.edu.cooper.ee:archivist1.userbak -p archivist1.ee.cooper.edu -u
+if [ $? -ne 0 ]; then
+	echo "FAIL!"
+	failed
+	exit -1
+else
+	echo "SUCCESS!"
+fi
+
+if [ $f -eq 1 ]; then
+	failed
+	exit -1
+fi
+
+success

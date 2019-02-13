@@ -1,0 +1,15 @@
+From: MicroLab Staff <richard@stallman.ee.cooper.edu>
+Subject: Cooper Union uLab Account Creation
+Your uLab account has been created and your login is:
+Username: $username
+Password (temporary): $password
+
+You can ssh into the ICElab machines with the following command:
+ssh $username@ice05.ee.cooper.edu -p31415 -X
+And then make sure to change your password with the command 'passwd'
+
+Also, placing html files (or any other files) in 'public_html' in your home directory will be automatically hosted publicly at http://ee.cooper.edu/~$username/
+
+Please email eeadmin@cooper.edu if you have any further questions or request.
+
+-B

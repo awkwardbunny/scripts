@@ -1,0 +1,4 @@
+dn: cn=staff,ou=Group,dc=ee,dc=cooper,dc=edu
+changetype: modify
+add: memberUid
+memberUid: $username

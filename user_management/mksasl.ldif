@@ -1,0 +1,4 @@
+dn: uid=$username,ou=People,dc=ee,dc=cooper,dc=edu
+changetype: modify
+replace: userPassword
+userPassword: {SASL}$username@EE.COOPER.EDU

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -e
+
+if [ $# -eq 0 ]; then
+	echo "No arguments supplied."
+	echo "Usage: $0 [userlist]"
+	exit -1
+fi
+
+
+pts createuser $un $uid
+
+vos create stallman a user.$un 0
+fs mkm /afs/ee.cooper.edu/user/$fl/$un user.$un -rw
+fs sa /afs/ee.cooper.edu/user/$fl/$un $un all
+
+vos create stallman a public.$un 0
+fs mkm /afs/ee.cooper.edu/public/www/$fl/$un user.$un -rw
+fs sa /afs/ee.cooper.edu/public/www/$fl/$un $un all
+ln -s /afs/ee.cooper.edu/public/www/$fl/$un /afs/ee.cooper.edu/user/$fl/$un/public_html

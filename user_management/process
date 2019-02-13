@@ -1,0 +1,35 @@
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+	echo "No arguments supplied."
+	echo "Usage: $0 [userlist]"
+	exit -1
+fi
+
+set -e 
+
+echo "Generating passwd file from userlist..."
+awk -f /root/.bin/gen_passwd.awk $1 > $1.passwd
+
+echo "Generating ldif file from passwd..."
+/usr/share/migrationtools/migrate_passwd.pl $1.passwd $1.ldif
+
+echo "Adding users ldif via ldapadd..."
+ldapadd -x -D cn=admin,dc=ee,dc=cooper,dc=edu -W -f $1.ldif
+
+echo "Generating shell script to add users to kerberos..."
+awk -f /root/.bin/create_krb.awk $1 > $1.krb.sh
+chmod u+x $1.krb.sh
+
+echo "Executing said script..."
+echo "This will also email out the info to users..."
+bash $1.krb.sh
+
+echo ""
+echo "The file 'passwords' should now contain the generated passwords along with the corresponding usernames."
+echo "Emailing report to eeadmin@cooper.edu..."
+cat /root/.bin/report_mail.template passwords | sendmail eeadmin@cooper.edu
+echo ""
+
+echo "Creating OpenAFS stuff..."
+awk -f /root/.bin/make_afs.awk $1 | bash

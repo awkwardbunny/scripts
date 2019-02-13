@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ $# -lt 2 ]; then
+	echo "Not enough arguments provided."
+	echo "Usage: $0 [user] [shell]"
+	exit -1
+fi
+
+sed 's/$username/'$1'/g; s~$sh~'$2'~g' /root/.bin/chsh.ldif | ldapmodify -x -D cn=admin,dc=ee,dc=cooper,dc=edu -W
