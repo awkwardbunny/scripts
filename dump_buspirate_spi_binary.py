@@ -6,23 +6,27 @@ import argparse
 import sys
 
 '''
-    dump_buspirate_spi.py
+    dump_buspirate_spi_binary.py
+
+    Binary mode version of dump_buspirate_spi.pu
 
     Dump memory contents into a file over serial.
     Written originally because flashrom couldn't read MX25L25635F properly.
     It read all 0's until I tried bus pirate and with the last SPI option (H instead of Hi-Z) set.
-
-    This script reads 4096 bytes at a time.
-    Has lots of overhead ('0x' and spaces, extra processing time, etc)
-    32MB calculated to take ~3.6 hours to dump...
-
-    TODO: Use binary mode to save some time...
-    http://dangerousprototypes.com/blog/2009/10/08/bus-pirate-raw-spi-mode/
 '''
+
+commands = {
+    'BBIO1': b'\x00',
+    'SPI1': b'\x01',
+    'CS_L': b'\x01',
+    'CS_H': b'\x01',
+    'READ': b'\x10',
+    'SPEED': b'\x60'
+}
 
 def s_open(port, baud):
     print('Opening serial port {}'.format(port))
-    return serial.Serial(port, baud, timeout=0.001)
+    return serial.Serial(port, baud, timeout=0.01)
 
 def main(port, baud, output):
 
@@ -31,19 +35,73 @@ def main(port, baud, output):
     ser.flushInput()
     ser.flushOutput()
 
-    # Initial prompt
-    print('Waiting for prompt...')
-    send(ser, '')
+    print('Attempting to enter binary mode')
+    #ser.write(b'\x00'*20)
+    #time.sleep(0.01)
+    line = ''
+    for i in range(25):
+        line = ser.read(5)
+        print('Attempt {}: {}'.format(i,line))
+        if line == b'BBIO1':
+            break
+        ser.write(b'\x00')
+        time.sleep(0.01)
+    #if not enterBinary(ser):
+    #    print('Failed!')
+    #    ser.close()
+    #    sys.exit()
+    #print('Success!')
 
-    # Configure for SPI
-    print('Configuring for SPI')
-    send(ser, 'm')
-    send(ser, '5')
-    send(ser, '4')
-    send(ser, '')
-    send(ser, '')
-    send(ser, '')
-    send(ser, '')
+    line = ser.read(5)
+    while line == b'BBIO1':
+        print('Clearing buffer: {}'.format(line))
+        line = ser.read(5)
+
+    print('Buffer should be empty: {}'.format(line))
+    print('(y)')
+
+    print('Entering SPI mode')
+    line = b''
+    while not line == b'SPI1':
+        ser.write(b'\x01')
+        time.sleep(0.01)
+        line = ser.read(5)
+        print(line)
+       # if not line == b'SPI1':
+       #     print('Failed!')
+       #     ser.close()
+       #     sys.exit()
+    print('Success!') 
+
+    print('Configuring speed.')
+    if not sendConf(ser,bytes([commands.get('SPEED')[0] & b'\x00'[0]])):
+        print('Failed!')
+        ser.close()
+        sys.exit()
+    print('Success!')
+
+    print('Configuring SPI.')
+    if not sendConf(ser,bytes(b'\x8a')):
+        print('Failed!')
+        ser.close()
+        sys.exit()
+    print('Success!')
+
+    sys.exit()
+
+    print('Sending a read command from 0x0')
+    ser.write(b'\x14')
+    ser.write(b'\x03\x00\x00\x00')
+    ser.read(4)
+
+    print('Reading data')
+    ser.write(b'\x1F')
+    ser.write(b'\x00'*16)
+    data = ser.read(16)
+    print(data)
+
+    sys.exit()
+
     send(ser, '2')
 
     size = 32*1024*1024
@@ -51,6 +109,25 @@ def main(port, baud, output):
 
     # Dump
     dump(ser, 0x0, size, each_read, output)
+
+def enterBinary(ser):
+    for i in range(25): # Needs 20 times, but for extra
+        ser.write(commands.get('BBIO1'))
+        time.sleep(0.01)
+        line = ser.read(5)
+        #print('Attempt {}: {}'.format(i,line))
+        if line == b'BBIO1':
+            return True
+    return False
+
+def sendConf(ser,cmd):
+    ser.write(cmd)
+    time.sleep(0.01)
+    line = ser.read(1)
+    print('Read: {}'.format(line))
+    if line == b'\x00':
+        return False
+    return True
 
 def dump(ser, beg, end, step, fn):
 
