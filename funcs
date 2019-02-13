@@ -1,0 +1,44 @@
+export CUSTOM_RC=".custom.rc"
+
+function chpwd() {
+	emulate -L zsh
+	#ls -la
+	setopt -s nullglob
+	for file in *$CUSTOM_RC; do
+		if [ -f $file ]; then
+			source $file
+			echo "[Auto-source] Automatically sourced $file"
+		fi
+	done
+}
+
+function hex {
+	if [ -z "$1" ]; then
+		echo "No argument supplied"
+		echo "Usage: $0 <filename>"
+		return;
+	fi
+
+	if [ ! -f "$1" ]; then
+		echo "File \"$1\" does not exist!"
+		return;
+	fi
+
+	hexdump -C "$1" | less;
+}
+#export -f hex
+
+function mkbak {
+	if [ -z "$1" ]; then
+		echo "No argument supplied"
+		echo "Usage: $0 <filename>"
+		return;
+	fi
+
+	if [ ! -f "$1" ]; then
+		echo "File \"$1\" does not exist!"
+		return;
+	fi
+
+	cp $1 $1.bak
+}

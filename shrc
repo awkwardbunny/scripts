@@ -1,0 +1,4 @@
+source ~/.bin/alias
+source ~/.bin/export
+source ~/.bin/funcs
+mksshconf
